@@ -223,6 +223,85 @@ pub mod types {
                 }
             }
         }    
+        
+        pub fn resolve_simple_type(&self) -> String{
+            let value = self.clone();
+            match value {
+                Value::nVal(_nullType) => {
+                    return "NullType".to_string();
+                }
+                Value::bVal(b) => {
+                    return b.to_string();
+                }
+                Value::iVal(i) => {
+                    return i.to_string();
+                }
+                Value::fVal(f) => {
+                    return f.0.to_string();
+                }
+                Value::sVal(s) => {
+                    return self.add_quotation(String::from_utf8(s).clone().unwrap());
+                }
+                Value::dVal(d) => {
+                    return "Date".to_string();
+                }
+                Value::tVal(t) => {
+                    return "Time".to_string();
+                }
+                Value::dtVal(dt) => {
+                    return "DateTime".to_string();
+                }
+                Value::vVal(v) =>{
+                    return "Box<Vertex>".to_string();
+                }
+                Value::eVal(e) => {
+                    return "Box<Edge>".to_string();
+                }
+                Value::pVal(p) => {
+                    return "Box<Path>".to_string();
+                }
+                Value::lVal(l) => {
+                    return "Box<NList>".to_string();
+                }
+                Value::mVal(m) => {
+                    let kvs = m.kvs;
+                    return self.resolve_BTreeMap(kvs);
+                }
+                Value::uVal(u) => {
+                    return "Box<NSet>".to_string();
+                }
+
+                _ => {
+                    "todo".to_string()
+                }
+            }
+        }
+
+        pub fn add_quotation(&self, src: String) -> String{
+            let mut ans = String::from("\"");
+            ans += src.as_str();
+            ans += "\"";
+            ans    
+        }
+
+        pub fn resolve_BTreeMap(&self, map: BTreeMap<Vec<u8>, Value>) -> String{
+            let mut ans = "{".to_string();
+            let mut index = 0 as usize;
+            let len = map.len();
+            for kv in map{
+                index += 1;
+                let k = self.add_quotation(String::from_utf8(kv.0).unwrap());
+                let v = kv.1.resolve_simple_type();
+                ans += k.as_str();
+                ans += ":";
+                ans += v.as_str();
+                if index < len{
+                    ans += ","
+                }
+            }
+            ans += "}";
+            ans
+        }
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -250,7 +329,7 @@ pub mod types {
         pub column_names: ::std::vec::Vec<::std::vec::Vec<::std::primitive::u8>>,
         pub rows: ::std::vec::Vec<crate::types::Row>,
     }
-    use std::fmt;
+    use std::{fmt, collections::BTreeMap};
     impl fmt::Display for DataSet {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(

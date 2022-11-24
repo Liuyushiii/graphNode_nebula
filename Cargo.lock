@@ -2003,6 +2003,7 @@ dependencies = [
  "graphql-parser",
  "http",
  "hyper",
+ "nebula-rust",
  "serde",
 ]
 

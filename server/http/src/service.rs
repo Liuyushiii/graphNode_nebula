@@ -14,6 +14,7 @@ use http::header::{
 };
 use hyper::service::Service;
 use hyper::{Body, Method, Request, Response, StatusCode};
+use nebula_rust::graph_client::{pool_config, connection_pool, connection::Connection as Connection_nebula,session, nebula_schema::{ColType, Tag, DataType, InsertTagQuery, InsertEdgeQueryWithRank}};
 
 use crate::request::parse_graphql_request;
 
@@ -230,7 +231,120 @@ where
         .boxed()
     }
 
+    // async fn handle_nebula_req(
+    //     self,
+    //     request: Request<Body>,
+    // ) -> GraphQLServiceResult {
+    //     self.handle_nebula_query(
+    //         QueryTarget::Name(subgraph_name, version),
+    //         request.into_body(),
+    //     )
+    //     .await
+    // }
+
+    pub fn parse_param(&self, input: &str) -> String{
+        let items: Vec<_> = input.split("=").collect();
+        let param = items[1];
+        let param = param.to_owned().replace("+", " ");
+        let param = param.to_owned().replace("%22", "\"");
+        let param = param.to_owned().replace("%3B", ";");
+        let param = param.to_owned().replace("%3C", "<");
+        let param = param.to_owned().replace("%3D", "=");
+        let param = param.to_owned().replace("%3E", ">");
+        param
+    }
+
+    async fn handle_nebula_query(
+        self,
+        request: Request<Body>,
+    ) -> GraphQLServiceResult {
+
+
+        let address = "root:root@49.52.27.117:9669/testGraph";
+        let conf_nebula = pool_config::PoolConfig::new_conf(address);
+        let conn_nebula = Connection_nebula::new_from_conf(&conf_nebula).await.unwrap();
+        let resp = conn_nebula.authenticate(conf_nebula.username.clone().as_str(), conf_nebula.password.clone().as_str()).await.unwrap();
+        let session_id = resp.session_id.unwrap();
+
+        println!("==========request==========");
+        println!("{:?}", request);
+        println!("==========request==========");
+
+        let path = request.uri().query().unwrap();
+
+
+        // println!("==========path==========");
+        // println!("{}",path);
+        // println!("==========path==========");
+
+
+        // space=basketballplayer&query=GO+FROM+%22player102%22+OVER+serve+YIELD+dst(edge)%3B
+        let items: Vec<_> = path.split("&").collect();
+        let space_name = self.parse_param(items[0]);
+        let query = self.parse_param(items[1]);
+        let start_step = self.parse_param(items[2]);
+        let end_step = self.parse_param(items[3]);
+
+        let start = start_step.parse::<i32>().unwrap();
+        let end = end_step.parse::<i32>().unwrap();
+
+
+        let mut ans = "\"edges\":[".to_string();
+
+        let mut index = 0 as i32;
+        let len = end - start + 1;
+
+        for i in start..=end{
+
+            index += 1;
+
+            let mut all_query = "use ".to_string();
+            all_query += space_name.as_str();
+            all_query += ";go ";
+            let step = i.to_string();
+            all_query += step.clone().as_str();
+            all_query += "to ";
+            all_query += step.clone().as_str();
+            all_query += query.as_str();
+
+            let resp = conn_nebula.execute(session_id, all_query.as_str()).await.unwrap();
+
+            println!("resp:{:?}", resp);
+    
+            // ans += resp.into_json_with_name(resp.parse_resp().unwrap(),"edge".to_string()).as_str();
+            ans += resp.into_json(resp.parse_resp().unwrap()).as_str();
+            if index < len{
+                ans+=",";
+            }
+        }
+
+
+        ans += "]";
+        
+        println!("space_name: {}", space_name);
+        println!("query: {}", query);
+
+
+
+
+
+
+
+        Ok(Response::builder()
+        .status(200)
+        .header(CONTENT_TYPE, "text/plain")
+        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .body(Body::from(ans))
+        .unwrap())
+
+    }
+
     fn handle_call(self, req: Request<Body>) -> GraphQLServiceResponse {
+
+        // println!("==========request==========");
+        // println!("{:?}", req);
+        // println!("==========request==========");
+
         let method = req.method().clone();
 
         let path = req.uri().path().to_owned();
@@ -244,6 +358,11 @@ where
         };
 
         match (method, path_segments.as_slice()) {
+            // handle nebula query
+            (Method::GET, &["subgraphs", "nebula", "query"]) => {
+                self.handle_nebula_query(req).boxed()
+            }
+
             (Method::GET, [""]) => self.index().boxed(),
             (Method::GET, &["subgraphs", "id", _, "graphql"])
             | (Method::GET, &["subgraphs", "name", _, "graphql"])

@@ -114,6 +114,57 @@ pub mod types {
                 }
             }
         }
+        pub fn into_json(&self, list: Vec<String>) -> String{
+            let mut ans = String::from("");
+            let mut index = 0 as usize;
+            let len = list.len();
+            for item in list{
+                index += 1;
+                ans += item.as_str();
+                if index < len{
+                    ans += ","
+                }
+            }
+            // ans += "]";
+            ans
+        }
+
+        
+        pub fn into_json_with_name(&self, list: Vec<String>, name: String) -> String{
+            let mut ans = String::from("\"");
+            ans += name.as_str();
+            ans += "\":[";
+            let mut index = 0 as usize;
+            let len = list.len();
+            for item in list{
+                index += 1;
+                ans += item.as_str();
+                if index < len{
+                    ans += ","
+                }
+            }
+            ans += "]";
+            ans
+        }
+
+        pub fn parse_resp(&self) -> Option<Vec<String>>{
+            let mut ans : Vec<String> = Vec::new();
+            if let common::types::ErrorCode(0i32) = self.error_code{
+            }else{
+                return None;
+            }
+            if let None = self.data{
+                return None;
+            }
+            for row in self.data.to_owned().unwrap().rows{
+                let values = row.values;
+                for value in values{
+                    let res = value.resolve_simple_type();
+                    ans.push(res);
+                }
+            }
+            Some(ans)
+        }
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

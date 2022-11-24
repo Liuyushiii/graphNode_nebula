@@ -123,6 +123,27 @@ impl Connection {
         Ok(result.unwrap())
     }
 
+    #[inline]
+    pub async fn execute_with_name(&self, session_id: i64, query: String, space_name: String) -> std::result::Result<graph::types::ExecutionResponse, common::types::ErrorCode>{
+        let mut all_query = "use ".to_string();
+        all_query += space_name.as_str();
+        all_query += ";";
+        all_query += query.as_str();
+        println!("query: {}", all_query.clone());
+        self.execute(session_id, all_query.as_str()).await
+    }
+
+    // #[inline]
+    // pub async fn execute_with_name_test(&self, session_id: i64, query: String, space_name: String){
+    //     let mut all_query = "use ".to_string();
+    //     all_query += space_name.as_str();
+    //     all_query += ";";
+    //     all_query += query.as_str();
+    //     println!("query: {}", all_query.clone());
+    //     let resp = self.execute(session_id, all_query.as_str()).await.unwrap();
+    //     resp.show_data();
+    //     println!("{:?}", resp);
+    // }
 
     #[inline]
     pub async fn show_spaces(&self, session_id: i64){
