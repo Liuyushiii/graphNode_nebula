@@ -21,7 +21,7 @@ graphql-parser = "0.4.0"
 hex = "0.4.3"
 
 [dev-dependencies]
-bollard = "0.10"
+bollard = "0.14"
 anyhow = "1.0.65"
 lazy_static = "1.4.0"
 tokio-stream = "0.1"
